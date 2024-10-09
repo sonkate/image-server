@@ -11,7 +11,7 @@ const storage = new Storage();
 const bucketName = 'image-server-bucket';
 
 const app = express();
-const port = 5005;
+const port = 5000;
 
 app.use(morgan('combined'));
 app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
