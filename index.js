@@ -4,10 +4,16 @@ const path = require('path');
 const crypto = require('crypto');
 const cors = require('cors');
 const helmet = require('helmet');
+const morgan = require('morgan');
+const bodyParser = require('body-parser');
+const { Storage } = require('@google-cloud/storage');
+const storage = new Storage();
+const bucketName = 'image-server-bucket';
 
 const app = express();
 const port = 5005;
 
+app.use(morgan('combined'));
 app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
 app.use(cors());
 
@@ -26,12 +32,13 @@ const validMimeTypes = {
   };
 // Middleware to parse JSON bodies
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({limit: '10mb'}));// Middleware to serve static files
+app.use(bodyParser.urlencoded({ extended: true })); // Cập nhật tùy chọn extended
+// Middleware to serve static files
 app.use('/uploads', express.static('uploads'));
 
 // Route to upload image
-app.post('/upload', (req, res) => {
-  try{
+app.post('/upload', async (req, res) => { // Thay đổi thành async
+  try {
     console.log('Request received');
     const { base64String } = req.body;
     if (!base64String) {
@@ -61,16 +68,14 @@ app.post('/upload', (req, res) => {
     const filename = `${randomName}.${ext}`;
     const filePath = path.join(__dirname, 'uploads', filename);
 
-    // Write the file to the uploads folder
-    fs.writeFile(filePath, base64Data, 'base64', (err) => {
-      if (err) {
-        console.log('Error saving file', err);
-        return res.status(500).send({ message: 'Error saving file', error: err });
-      }
-      res.send({ message: 'Image uploaded successfully', url: `https://imageserver.tapdadoge.app/uploads/${filename }`});
+    // Thay đổi phần ghi file
+    const file = storage.bucket(bucketName).file(filename);
+    await file.save(Buffer.from(base64Data, 'base64'), {
+      metadata: { contentType: mimeType },
     });
-  }
-  catch(error){
+
+    res.send({ message: 'Image uploaded successfully', url: `https://storage.googleapis.com/${bucketName}/${filename}` }); // Thay đổi dòng này
+  } catch (error) {
     console.log('Internal Server Error', error);
     res.status(500).send({ message: 'Internal Server Error', error: error.message });
   }
